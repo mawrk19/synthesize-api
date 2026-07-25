@@ -9,10 +9,12 @@ use App\Modules\Projects\Models\Project;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Diagram extends Model
 {
     use HasUuids;
+    use SoftDeletes;
 
     protected $table = 'diagrams';
 

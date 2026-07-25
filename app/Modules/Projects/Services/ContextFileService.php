@@ -51,10 +51,7 @@ class ContextFileService
             return false;
         }
 
-        UploadStorage::delete($file->storage_path);
-        $file->delete();
-
-        return true;
+        return (bool) $file->delete();
     }
 
     /** @return list<string> */

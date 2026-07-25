@@ -31,7 +31,7 @@ class ExtractRequirementsJob implements ShouldQueue
 
         Requirement::query()
             ->where('srs_document_id', $document->id)
-            ->delete();
+            ->forceDelete();
 
         $markdown = (string) $document->generated_srs;
 
