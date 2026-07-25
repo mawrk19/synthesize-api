@@ -37,7 +37,7 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: https://synthesize-client-kappa.vercel.app
       - key: SEED_ON_DEPLOY
-        value: "true"
+        value: "false"
       - key: DATABASE_URL
         sync: false
       - key: AI_API_KEY
