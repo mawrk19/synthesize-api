@@ -17,6 +17,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Uploads Disk
+    |--------------------------------------------------------------------------
+    |
+    | Context files and intake audio are stored on this disk. Use "local" for
+    | development and "s3" (AWS S3 or Cloudflare R2) in production on Render.
+    |
+    */
+
+    'uploads_disk' => env('UPLOADS_DISK', env('FILESYSTEM_DISK', 'local')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

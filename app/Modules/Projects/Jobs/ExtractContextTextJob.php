@@ -5,10 +5,10 @@ namespace App\Modules\Projects\Jobs;
 use App\Modules\Documents\Enums\DocumentStatus;
 use App\Modules\Projects\Models\ContextFile;
 use App\Modules\Projects\Services\TextExtractionService;
+use App\Support\UploadStorage;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class ExtractContextTextJob implements ShouldQueue
@@ -36,8 +36,10 @@ class ExtractContextTextJob implements ShouldQueue
             'error_message' => null,
         ]);
 
-        $absolute = Storage::disk('local')->path($file->storage_path);
-        $text = $extractor->extract($absolute, $file->filename, $file->mime_type);
+        $text = UploadStorage::withLocalPath(
+            $file->storage_path,
+            fn (string $absolute): string => $extractor->extract($absolute, $file->filename, $file->mime_type),
+        );
 
         $file->update([
             'extracted_text' => $text,

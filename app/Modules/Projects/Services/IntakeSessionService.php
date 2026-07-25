@@ -11,10 +11,10 @@ use App\Modules\Projects\Jobs\StructureIntakeJob;
 use App\Modules\Projects\Jobs\TranscribeAudioJob;
 use App\Modules\Projects\Models\IntakeSession;
 use App\Modules\Projects\Models\Project;
+use App\Support\UploadStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 
 class IntakeSessionService
 {
@@ -94,7 +94,7 @@ class IntakeSessionService
 
     public function createFromAudio(Project $project, UploadedFile $file, ?string $title = null): IntakeSession
     {
-        $path = $file->store("projects/{$project->id}/audio", 'local');
+        $path = UploadStorage::store($file, "projects/{$project->id}/audio");
 
         $session = IntakeSession::query()->create([
             'project_id' => $project->id,

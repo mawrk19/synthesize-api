@@ -5,10 +5,10 @@ namespace App\Modules\Projects\Jobs;
 use App\Modules\Core\Services\AiCompletionService;
 use App\Modules\Projects\Enums\IntakeStatus;
 use App\Modules\Projects\Models\IntakeSession;
+use App\Support\UploadStorage;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class TranscribeAudioJob implements ShouldQueue
@@ -36,9 +36,6 @@ class TranscribeAudioJob implements ShouldQueue
             'error_message' => null,
         ]);
 
-        $absolute = Storage::disk('local')->path($session->audio_path);
-        $filename = basename($session->audio_path);
-
         if (! $ai->isConfigured()) {
             $session->update([
                 'status' => IntakeStatus::Failed,
@@ -48,7 +45,11 @@ class TranscribeAudioJob implements ShouldQueue
             return;
         }
 
-        $text = $ai->transcribe($absolute, $filename);
+        $filename = basename($session->audio_path);
+        $text = UploadStorage::withLocalPath(
+            $session->audio_path,
+            fn (string $absolute): string => $ai->transcribe($absolute, $filename),
+        );
 
         $session->update([
             'raw_content' => $text,

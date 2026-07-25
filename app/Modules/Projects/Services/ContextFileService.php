@@ -6,9 +6,9 @@ use App\Modules\Documents\Enums\DocumentStatus;
 use App\Modules\Projects\Jobs\ExtractContextTextJob;
 use App\Modules\Projects\Models\ContextFile;
 use App\Modules\Projects\Models\Project;
+use App\Support\UploadStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 
 class ContextFileService
 {
@@ -20,7 +20,7 @@ class ContextFileService
 
     public function upload(Project $project, UploadedFile $file): ContextFile
     {
-        $path = $file->store("projects/{$project->id}/context", 'local');
+        $path = UploadStorage::store($file, "projects/{$project->id}/context");
 
         $contextFile = ContextFile::query()->create([
             'project_id' => $project->id,
@@ -51,7 +51,7 @@ class ContextFileService
             return false;
         }
 
-        Storage::disk('local')->delete($file->storage_path);
+        UploadStorage::delete($file->storage_path);
         $file->delete();
 
         return true;
