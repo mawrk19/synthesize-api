@@ -24,7 +24,7 @@ class UserResource extends JsonResource
             'first_name' => $this->first_name,
             'middle_name' => $this->middle_name,
             'last_name' => $this->last_name,
-            'avatar_url' => "https://api.dicebear.com/6.x/initials/svg?seed={$this->first_name}%20{$this->last_name}",
+            'avatar_url' => 'https://api.dicebear.com/10.x/dylan/svg?seed='.urlencode((string) $this->id),
         ];
     }
 }
