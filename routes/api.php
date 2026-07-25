@@ -25,6 +25,7 @@ Route::group(['prefix' => '/iam', 'as' => 'iam.', 'middleware' => 'auth:sanctum'
     Route::get('/current', [AuthController::class, 'currentUser'])->name('user.current');
     Route::post('/login', [AuthController::class, 'login'])->name('login')->withoutMiddleware('auth:sanctum');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
 });
 
 Route::group(['prefix' => '/authorization', 'as' => 'authorization.', 'middleware' => 'auth:sanctum'], function () {

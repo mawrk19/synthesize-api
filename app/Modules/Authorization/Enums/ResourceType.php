@@ -20,6 +20,7 @@ enum ResourceType: string
         return match ($this) {
             self::USERS => [
                 PermissionCode::VIEW_USERS,
+                PermissionCode::CREATE_USERS,
             ],
 
             self::ROLES => [

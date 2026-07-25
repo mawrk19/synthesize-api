@@ -45,4 +45,12 @@ class EloquentUserRepository implements UserRepository
             yield UserMapper::fromEloquent($user);
         }
     }
+
+    /** @param  array<string, mixed>  $attributes */
+    public function create(array $attributes): User
+    {
+        $user = UserModel::query()->create($attributes);
+
+        return UserMapper::fromEloquent($user);
+    }
 }

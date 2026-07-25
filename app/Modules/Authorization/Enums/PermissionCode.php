@@ -8,6 +8,7 @@ use Str;
 enum PermissionCode: string
 {
     case VIEW_USERS = 'VIEW_USERS';
+    case CREATE_USERS = 'CREATE_USERS';
     case VIEW_ROLES = 'VIEW_ROLES';
     case VIEW_DOCUMENTS = 'VIEW_DOCUMENTS';
     case CREATE_DOCUMENTS = 'CREATE_DOCUMENTS';
@@ -19,6 +20,7 @@ enum PermissionCode: string
     {
         return match ($this) {
             self::VIEW_USERS => 'View Users',
+            self::CREATE_USERS => 'Create Users',
             self::VIEW_ROLES => 'View Roles',
             self::VIEW_DOCUMENTS => 'View Documents',
             self::CREATE_DOCUMENTS => 'Create Documents',
@@ -48,6 +50,7 @@ enum PermissionCode: string
     {
         return match ($this) {
             self::VIEW_USERS => 'Can view all users',
+            self::CREATE_USERS => 'Can create new users',
             self::VIEW_ROLES => 'Can view all roles',
             self::VIEW_DOCUMENTS => 'Can view SRS documents',
             self::CREATE_DOCUMENTS => 'Can create SRS documents from notes',

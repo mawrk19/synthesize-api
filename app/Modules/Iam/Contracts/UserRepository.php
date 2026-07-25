@@ -15,4 +15,7 @@ interface UserRepository
 
     /** @return iterable<User> */
     public function getAll(): iterable;
+
+    /** @param  array<string, mixed>  $attributes */
+    public function create(array $attributes): User;
 }
