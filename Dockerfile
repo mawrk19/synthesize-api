@@ -6,6 +6,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
         libicu-dev \
+        libonig-dev \
         libpq-dev \
         libzip-dev \
         unzip \
