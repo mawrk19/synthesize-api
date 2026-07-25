@@ -51,8 +51,8 @@ enum PermissionCode: string
             self::VIEW_ROLES => 'Can view all roles',
             self::VIEW_DOCUMENTS => 'Can view SRS documents',
             self::CREATE_DOCUMENTS => 'Can create SRS documents from notes',
-            self::VIEW_PROJECTS => 'Can view SysAgent projects',
-            self::CREATE_PROJECTS => 'Can create SysAgent projects',
+            self::VIEW_PROJECTS => 'Can view Synthesize projects',
+            self::CREATE_PROJECTS => 'Can create Synthesize projects',
             self::MANAGE_PROJECT_CONTEXT => 'Can upload context files and manage intake for projects',
             default => 'No description available',
         };
