@@ -43,11 +43,11 @@ class DummyDataSeeder extends Seeder
 
         $users = [
             [
-                'first_name' => 'Super',
-                'last_name' => 'Admin',
-                'username' => 'superadmin',
-                'email' => 'superadmin@example.com',
-                'password' => 'password',
+                'first_name' => 'Mark',
+                'last_name' => 'Acedo',
+                'username' => 'mawrk19',
+                'email' => 'gercee19@gmail.com',
+                'password' => 'password123',
                 'role_code' => SystemRole::SUPER_ADMIN->value,
             ],
         ];

@@ -34,6 +34,7 @@ RUN composer install --no-dev --no-scripts --prefer-dist --optimize-autoloader -
 COPY . .
 
 RUN composer dump-autoload --optimize \
+    && php artisan package:discover --ansi \
     && chmod +x docker/entrypoint-web.sh docker/entrypoint-worker.sh
 
 EXPOSE 8000
