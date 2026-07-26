@@ -31,6 +31,7 @@ class PipelineOrchestrator
         private readonly DeveloperAgent $developerAgent,
         private readonly TesterAgent $testerAgent,
         private readonly ReviewerAgent $reviewerAgent,
+        private readonly GitHubRepositoryService $github,
     ) {}
 
     public function start(Project $project, SrsDocument $document): PipelineRun
@@ -195,7 +196,25 @@ class PipelineOrchestrator
         string $defaultBranch = 'main',
         ?string $basePath = null,
         ?string $token = null,
+        string $mode = 'existing',
+        bool $private = false,
+        ?string $description = null,
     ): ProjectRepository {
+        if ($mode === 'new') {
+            $resolvedToken = $this->github->resolveTokenOrFail($token);
+            $created = $this->github->createRepository(
+                token: $resolvedToken,
+                owner: $owner,
+                name: $repo,
+                private: $private,
+                description: $description,
+            );
+
+            $owner = $created['owner'];
+            $repo = $created['repo'];
+            $defaultBranch = $created['default_branch'] ?: $defaultBranch;
+        }
+
         $repository = ProjectRepository::query()->firstOrNew(['project_id' => $project->id]);
         $repository->fill([
             'provider' => 'github',
@@ -211,7 +230,15 @@ class PipelineOrchestrator
 
         $repository->save();
 
-        return $repository->fresh();
+        $repository = $repository->fresh();
+
+        try {
+            return $this->github->ensureRepositoryInitialized($repository);
+        } catch (RuntimeException $e) {
+            $repository->setAttribute('initialization_warning', $e->getMessage());
+
+            return $repository;
+        }
     }
 
     /** @return Collection<int, PipelineRun> */

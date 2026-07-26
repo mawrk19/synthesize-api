@@ -176,6 +176,9 @@ class PipelineController extends Controller
                 defaultBranch: $request->input('default_branch', 'main'),
                 basePath: $request->input('base_path'),
                 token: $request->input('token'),
+                mode: $request->input('mode', 'existing'),
+                private: (bool) $request->boolean('private'),
+                description: $request->input('description'),
             );
         } catch (Throwable $e) {
             abort(422, $e->getMessage());

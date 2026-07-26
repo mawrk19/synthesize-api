@@ -298,6 +298,18 @@ class PipelineOrchestrationTest extends TestCase
             $url = $request->url();
             $method = $request->method();
 
+            if (
+                str_contains($url, '/repos/acme/app')
+                && ! str_contains($url, '/git/')
+                && ! str_contains($url, '/contents/')
+                && $method === 'GET'
+            ) {
+                return Http::response([
+                    'name' => 'app',
+                    'default_branch' => 'main',
+                    'permissions' => ['push' => true, 'pull' => true],
+                ]);
+            }
             if (str_contains($url, '/git/ref/heads/main') && $method === 'GET') {
                 return Http::response(['object' => ['sha' => 'base-commit-sha']]);
             }
@@ -357,6 +369,32 @@ class PipelineOrchestrationTest extends TestCase
 
     public function test_repository_upsert_hides_token(): void
     {
+        config(['services.github.api_base_url' => 'https://api.github.com']);
+
+        Http::fake(function (\Illuminate\Http\Client\Request $request) {
+            $url = $request->url();
+            $method = $request->method();
+
+            if (
+                str_contains($url, '/repos/acme/app')
+                && ! str_contains($url, '/git/')
+                && ! str_contains($url, '/contents/')
+                && $method === 'GET'
+            ) {
+                return Http::response([
+                    'name' => 'app',
+                    'default_branch' => 'main',
+                    'permissions' => ['push' => true, 'pull' => true],
+                ]);
+            }
+
+            if (str_contains($url, '/git/ref/heads/main') && $method === 'GET') {
+                return Http::response(['object' => ['sha' => 'base-commit-sha']]);
+            }
+
+            return Http::response(['message' => 'unhandled '.$method.' '.$url], 500);
+        });
+
         $this->actingAs($this->user)
             ->putJson("/api/projects/{$this->project->id}/repository", [
                 'owner' => 'acme',
@@ -374,5 +412,46 @@ class PipelineOrchestrationTest extends TestCase
         $stored = ProjectRepository::query()->where('project_id', $this->project->id)->firstOrFail();
         $this->assertNotSame('ghp_secret_token_value', $stored->encrypted_token);
         $this->assertSame('ghp_secret_token_value', $stored->getDecryptedToken());
+    }
+
+    public function test_repository_upsert_returns_initialization_warning_when_token_cannot_push(): void
+    {
+        config(['services.github.api_base_url' => 'https://api.github.com']);
+
+        Http::fake(function (\Illuminate\Http\Client\Request $request) {
+            $url = $request->url();
+            $method = $request->method();
+
+            if (
+                str_contains($url, '/repos/acme/app')
+                && ! str_contains($url, '/git/')
+                && ! str_contains($url, '/contents/')
+                && $method === 'GET'
+            ) {
+                return Http::response([
+                    'name' => 'app',
+                    'default_branch' => 'main',
+                    'permissions' => ['push' => false, 'pull' => true],
+                ]);
+            }
+
+            if (str_contains($url, '/git/ref/heads/main') && $method === 'GET') {
+                return Http::response(['message' => 'Git Repository is empty.'], 409);
+            }
+
+            return Http::response(['message' => 'unhandled '.$method.' '.$url], 500);
+        });
+
+        $this->actingAs($this->user)
+            ->putJson("/api/projects/{$this->project->id}/repository", [
+                'owner' => 'acme',
+                'repo' => 'app',
+                'default_branch' => 'main',
+                'token' => 'ghp_secret_token_value',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.owner', 'acme')
+            ->assertJsonPath('data.has_token', true)
+            ->assertJsonPath('data.initialization_warning', fn ($value) => is_string($value) && str_contains($value, 'write access'));
     }
 }
