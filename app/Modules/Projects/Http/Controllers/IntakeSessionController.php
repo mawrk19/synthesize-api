@@ -89,6 +89,22 @@ class IntakeSessionController extends Controller
     }
 
     #[HeaderParameter('Authorization', 'The authorization token', true)]
+    public function destroy(string $projectId, string $id)
+    {
+        $project = $this->projectService->findForCurrentUser($projectId);
+
+        if (! $project) {
+            abort(404, 'Project not found');
+        }
+
+        if (! $this->intakeSessionService->delete($project, $id)) {
+            abort(404, 'Intake session not found');
+        }
+
+        return response()->json(null, 204);
+    }
+
+    #[HeaderParameter('Authorization', 'The authorization token', true)]
     public function structure(string $projectId, string $id)
     {
         $project = $this->projectService->findForCurrentUser($projectId);

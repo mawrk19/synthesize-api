@@ -76,4 +76,14 @@ class SrsDocumentController extends Controller
 
         return new SrsDocumentResource($document);
     }
+
+    #[HeaderParameter('Authorization', 'The authorization token', true)]
+    public function destroy(string $id)
+    {
+        if (! $this->documentService->delete($id)) {
+            abort(404, 'Document not found');
+        }
+
+        return response()->json(null, 204);
+    }
 }

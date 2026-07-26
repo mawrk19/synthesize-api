@@ -110,6 +110,17 @@ class SrsDocumentService
         return $document->fresh();
     }
 
+    public function delete(string $id): bool
+    {
+        $document = $this->findForCurrentUser($id);
+
+        if (! $document) {
+            return false;
+        }
+
+        return (bool) $document->delete();
+    }
+
     private function resolveProject(?string $projectId): Project
     {
         if ($projectId) {

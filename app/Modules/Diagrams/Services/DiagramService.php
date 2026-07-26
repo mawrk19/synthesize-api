@@ -84,6 +84,17 @@ class DiagramService
         return $diagram->fresh();
     }
 
+    public function delete(Project $project, string $id): bool
+    {
+        $diagram = $this->findForProject($project, $id);
+
+        if (! $diagram) {
+            return false;
+        }
+
+        return (bool) $diagram->delete();
+    }
+
     /** @return Collection<int, Diagram> */
     public function generateFromDocument(SrsDocument $document, array $types = ['sequence', 'erd']): Collection
     {

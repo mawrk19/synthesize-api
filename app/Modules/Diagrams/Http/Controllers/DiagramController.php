@@ -117,6 +117,22 @@ class DiagramController extends Controller
     }
 
     #[HeaderParameter('Authorization', 'The authorization token', true)]
+    public function destroy(string $projectId, string $id)
+    {
+        $project = $this->projectService->findForCurrentUser($projectId);
+
+        if (! $project) {
+            abort(404, 'Project not found');
+        }
+
+        if (! $this->diagramService->delete($project, $id)) {
+            abort(404, 'Diagram not found');
+        }
+
+        return response()->json(null, 204);
+    }
+
+    #[HeaderParameter('Authorization', 'The authorization token', true)]
     public function generateFromDocument(string $documentId)
     {
         $document = $this->documentService->findForCurrentUser($documentId);

@@ -51,6 +51,21 @@ class CollaborationController extends Controller
         return ReviewLinkResource::collection($this->collaborationService->listReviewLinks($project));
     }
 
+    #[HeaderParameter('Authorization', 'The authorization token', true)]
+    public function destroyReviewLink(string $projectId, string $id)
+    {
+        $project = $this->projectService->findForCurrentUser($projectId);
+        if (! $project) {
+            abort(404, 'Project not found');
+        }
+
+        if (! $this->collaborationService->deleteReviewLink($project, $id)) {
+            abort(404, 'Review link not found');
+        }
+
+        return response()->json(null, 204);
+    }
+
     public function showReview(string $token)
     {
         $link = $this->collaborationService->findReviewByToken($token);

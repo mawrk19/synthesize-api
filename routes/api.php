@@ -43,6 +43,7 @@ Route::group(['prefix' => '/documents', 'as' => 'documents.', 'middleware' => 'a
     Route::post('/', [SrsDocumentController::class, 'store'])->name('store');
     Route::get('/{id}', [SrsDocumentController::class, 'show'])->name('show');
     Route::patch('/{id}', [SrsDocumentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [SrsDocumentController::class, 'destroy'])->name('destroy');
     Route::post('/{id}/regenerate', [SrsDocumentController::class, 'regenerate'])->name('regenerate');
 
     Route::post('/{id}/generate-diagrams', [DiagramController::class, 'generateFromDocument'])->name('generate-diagrams');
@@ -73,6 +74,7 @@ Route::group(['prefix' => '/projects', 'as' => 'projects.', 'middleware' => 'aut
     Route::post('/{projectId}/intake-sessions', [IntakeSessionController::class, 'store'])->name('intake.store');
     Route::get('/{projectId}/intake-sessions/{id}', [IntakeSessionController::class, 'show'])->name('intake.show');
     Route::patch('/{projectId}/intake-sessions/{id}', [IntakeSessionController::class, 'update'])->name('intake.update');
+    Route::delete('/{projectId}/intake-sessions/{id}', [IntakeSessionController::class, 'destroy'])->name('intake.destroy');
     Route::post('/{projectId}/intake-sessions/{id}/structure', [IntakeSessionController::class, 'structure'])->name('intake.structure');
     Route::post('/{projectId}/intake-sessions/{id}/generate-srs', [IntakeSessionController::class, 'generateSrs'])->name('intake.generate-srs');
     Route::post('/{projectId}/transcripts', [IntakeSessionController::class, 'storeTranscript'])->name('transcripts.store');
@@ -85,10 +87,12 @@ Route::group(['prefix' => '/projects', 'as' => 'projects.', 'middleware' => 'aut
     Route::post('/{projectId}/diagrams', [DiagramController::class, 'store'])->name('diagrams.store');
     Route::get('/{projectId}/diagrams/{id}', [DiagramController::class, 'show'])->name('diagrams.show');
     Route::patch('/{projectId}/diagrams/{id}', [DiagramController::class, 'update'])->name('diagrams.update');
+    Route::delete('/{projectId}/diagrams/{id}', [DiagramController::class, 'destroy'])->name('diagrams.destroy');
     Route::post('/{projectId}/diagrams/{id}/generate', [DiagramController::class, 'generate'])->name('diagrams.generate');
 
     Route::get('/{projectId}/review-links', [CollaborationController::class, 'listReviewLinks'])->name('review-links.index');
     Route::post('/{projectId}/review-links', [CollaborationController::class, 'storeReviewLink'])->name('review-links.store');
+    Route::delete('/{projectId}/review-links/{id}', [CollaborationController::class, 'destroyReviewLink'])->name('review-links.destroy');
 });
 
 Route::get('/analysis-runs/{runId}', [AnalysisController::class, 'showRun'])->middleware('auth:sanctum');

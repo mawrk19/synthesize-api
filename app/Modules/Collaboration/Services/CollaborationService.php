@@ -30,6 +30,20 @@ class CollaborationService
         return ReviewLink::query()->where('project_id', $project->id)->latest()->get();
     }
 
+    public function deleteReviewLink(Project $project, string $id): bool
+    {
+        $link = ReviewLink::query()
+            ->where('project_id', $project->id)
+            ->where('id', $id)
+            ->first();
+
+        if (! $link) {
+            return false;
+        }
+
+        return (bool) $link->delete();
+    }
+
     public function findReviewByToken(string $token): ?ReviewLink
     {
         $link = ReviewLink::query()->where('token', $token)->first();

@@ -36,6 +36,21 @@ class IntakeSessionService
             ->first();
     }
 
+    public function delete(Project $project, string $id): bool
+    {
+        $session = $this->findForProject($project, $id);
+
+        if (! $session) {
+            return false;
+        }
+
+        if (filled($session->audio_path)) {
+            UploadStorage::delete((string) $session->audio_path);
+        }
+
+        return (bool) $session->delete();
+    }
+
     public function createBrainDump(Project $project, ?string $title = null, ?string $rawContent = null): IntakeSession
     {
         return IntakeSession::query()->create([
