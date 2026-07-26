@@ -372,14 +372,64 @@ class GitHubRepositoryService
                 'body' => $body,
             ]);
 
+        if ($response->successful()) {
+            return [
+                'number' => (int) $response->json('number'),
+                'url' => (string) $response->json('url'),
+                'html_url' => (string) $response->json('html_url'),
+            ];
+        }
+
+        $bodyText = (string) $response->body();
+        if ($this->isDuplicatePullRequestError($bodyText)) {
+            $existing = $this->findOpenPullRequestForHead($repository, $headBranch);
+            if ($existing !== null) {
+                return $existing;
+            }
+        }
+
+        throw new RuntimeException('Failed to open pull request: '.$bodyText);
+    }
+
+    private function isDuplicatePullRequestError(string $body): bool
+    {
+        $lower = strtolower($body);
+
+        return str_contains($lower, 'pull request already exists')
+            || (str_contains($lower, 'validation failed') && str_contains($lower, 'already exists'));
+    }
+
+    /**
+     * @return array{number: int, url: string, html_url: string}|null
+     */
+    public function findOpenPullRequestForHead(ProjectRepository $repository, string $headBranch): ?array
+    {
+        $head = "{$repository->owner}:{$headBranch}";
+        $response = $this->client($repository)
+            ->get("/repos/{$repository->owner}/{$repository->repo}/pulls", [
+                'state' => 'open',
+                'head' => $head,
+                'per_page' => 5,
+            ]);
+
         if (! $response->successful()) {
-            throw new RuntimeException('Failed to open pull request: '.$response->body());
+            return null;
+        }
+
+        $prs = $response->json();
+        if (! is_array($prs) || $prs === []) {
+            return null;
+        }
+
+        $pr = $prs[0];
+        if (! is_array($pr)) {
+            return null;
         }
 
         return [
-            'number' => (int) $response->json('number'),
-            'url' => (string) $response->json('url'),
-            'html_url' => (string) $response->json('html_url'),
+            'number' => (int) ($pr['number'] ?? 0),
+            'url' => (string) ($pr['url'] ?? ''),
+            'html_url' => (string) ($pr['html_url'] ?? ''),
         ];
     }
 

@@ -17,6 +17,8 @@ class ApprovePipelineReviewRequest extends FormRequest
         return [
             'approver_name' => ['nullable', 'string', 'max:120'],
             'guest_name' => ['nullable', 'string', 'max:120'],
+            'task_ids' => ['nullable', 'array'],
+            'task_ids.*' => ['uuid'],
         ];
     }
 }

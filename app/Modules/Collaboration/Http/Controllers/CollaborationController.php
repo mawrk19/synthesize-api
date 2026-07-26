@@ -197,6 +197,7 @@ class CollaborationController extends Controller
             $run = $this->collaborationService->approvePipelineFromReview(
                 token: $token,
                 approverName: $request->input('guest_name') ?? $request->input('approver_name'),
+                taskIds: $request->input('task_ids'),
             );
         } catch (\RuntimeException $e) {
             abort(422, $e->getMessage());

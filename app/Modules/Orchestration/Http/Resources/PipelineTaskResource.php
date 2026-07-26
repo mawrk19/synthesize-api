@@ -24,6 +24,7 @@ class PipelineTaskResource extends JsonResource
             'description' => $this->description,
             'agent_role' => $this->agent_role?->value,
             'status' => $this->status?->value,
+            'included_in_plan' => (bool) ($this->included_in_plan ?? true),
             'prompt_template' => $this->prompt_template,
             'files_hint' => $this->files_hint,
             'attempts' => $this->attempts,

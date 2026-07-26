@@ -148,7 +148,10 @@ class CollaborationService
         $pipeline = null;
         if ($link->pipeline_run_id) {
             $run = PipelineRun::query()
-                ->with(['tasks' => fn ($q) => $q->where('agent_role', 'developer')->orderBy('sort_order')])
+                ->with([
+                    'tasks' => fn ($q) => $q->where('agent_role', 'developer')->orderBy('sort_order'),
+                    'tasks.requirement',
+                ])
                 ->find($link->pipeline_run_id);
 
             if ($run) {
@@ -166,6 +169,15 @@ class CollaborationService
                         'agent_role' => $t->agent_role?->value,
                         'status' => $t->status?->value,
                         'sort_order' => $t->sort_order,
+                        'included_in_plan' => (bool) ($t->included_in_plan ?? true),
+                        'files_hint' => $t->files_hint,
+                        'requirement' => $t->requirement_id && $t->relationLoaded('requirement') && $t->requirement
+                            ? [
+                                'id' => $t->requirement->id,
+                                'code' => $t->requirement->code,
+                                'title' => $t->requirement->title,
+                            ]
+                            : null,
                     ])->values()->all(),
                 ];
             }
@@ -184,8 +196,11 @@ class CollaborationService
         ];
     }
 
-    public function approvePipelineFromReview(string $token, ?string $approverName = null): PipelineRun
-    {
+    public function approvePipelineFromReview(
+        string $token,
+        ?string $approverName = null,
+        ?array $taskIds = null,
+    ): PipelineRun {
         $link = $this->findReviewByToken($token);
         if (! $link || ! $link->pipeline_run_id) {
             throw new RuntimeException('Review link is not tied to a pipeline run.');
@@ -203,6 +218,6 @@ class CollaborationService
         /** @var PipelineOrchestrator $orchestrator */
         $orchestrator = app(PipelineOrchestrator::class);
 
-        return $orchestrator->approve($run, null, $approverName ?: 'Stakeholder');
+        return $orchestrator->approve($run, null, $approverName ?: 'Stakeholder', $taskIds);
     }
 }

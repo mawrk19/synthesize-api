@@ -454,4 +454,299 @@ class PipelineOrchestrationTest extends TestCase
             ->assertJsonPath('data.has_token', true)
             ->assertJsonPath('data.initialization_warning', fn ($value) => is_string($value) && str_contains($value, 'write access'));
     }
+
+    public function test_approve_with_subset_of_task_ids_skips_excluded_triplet(): void
+    {
+        Requirement::query()->create([
+            'project_id' => $this->project->id,
+            'srs_document_id' => $this->document->id,
+            'type' => 'fr',
+            'code' => 'FR-002',
+            'title' => 'Second requirement',
+            'body' => 'Another FR',
+            'gherkin' => "Given x\nWhen y\nThen z",
+            'priority' => 'must',
+        ]);
+
+        $this->mock(AiCompletionService::class, function ($mock) {
+            $mock->shouldReceive('complete')->andReturn(json_encode([
+                [
+                    'title' => 'Task A',
+                    'description' => 'First',
+                    'requirement_code' => 'FR-001',
+                    'sort_order' => 1,
+                    'prompt_template' => 'Do A',
+                    'files_hint' => [],
+                ],
+                [
+                    'title' => 'Task B',
+                    'description' => 'Second',
+                    'requirement_code' => 'FR-002',
+                    'sort_order' => 2,
+                    'prompt_template' => 'Do B',
+                    'files_hint' => [],
+                ],
+            ]));
+        });
+
+        $this->actingAs($this->user)
+            ->postJson("/api/documents/{$this->document->id}/pipeline/start")
+            ->assertCreated();
+
+        $run = PipelineRun::query()->firstOrFail();
+        $developerTasks = PipelineTask::query()
+            ->where('pipeline_run_id', $run->id)
+            ->where('agent_role', AgentRole::Developer)
+            ->orderBy('sort_order')
+            ->get();
+
+        $this->assertCount(2, $developerTasks);
+        $keep = $developerTasks->first();
+        $skip = $developerTasks->last();
+
+        Queue::fake();
+
+        $this->actingAs($this->user)
+            ->postJson("/api/projects/{$this->project->id}/pipeline-runs/{$run->id}/approve", [
+                'task_ids' => [$keep->id],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'executing')
+            ->assertJsonPath('data.approved_task_count', 1)
+            ->assertJsonPath('data.skipped_task_count', 1);
+
+        $keep->refresh();
+        $skip->refresh();
+        $this->assertTrue($keep->included_in_plan);
+        $this->assertSame(PipelineTaskStatus::Pending, $keep->status);
+        $this->assertFalse($skip->included_in_plan);
+        $this->assertSame(PipelineTaskStatus::Skipped, $skip->status);
+
+        $skippedDependents = PipelineTask::query()
+            ->where('pipeline_run_id', $run->id)
+            ->where('parent_task_id', $skip->id)
+            ->get();
+
+        $this->assertNotEmpty($skippedDependents);
+        foreach ($skippedDependents as $dependent) {
+            $this->assertSame(PipelineTaskStatus::Skipped, $dependent->status);
+            $this->assertFalse($dependent->included_in_plan);
+        }
+    }
+
+    public function test_approve_without_task_ids_includes_all_developer_tasks(): void
+    {
+        $this->mock(AiCompletionService::class, function ($mock) {
+            $mock->shouldReceive('complete')->andReturn(json_encode([
+                [
+                    'title' => 'Task A',
+                    'description' => 'Desc',
+                    'requirement_code' => 'FR-001',
+                    'sort_order' => 1,
+                    'prompt_template' => 'Do it',
+                    'files_hint' => [],
+                ],
+            ]));
+        });
+
+        $this->actingAs($this->user)
+            ->postJson("/api/documents/{$this->document->id}/pipeline/start")
+            ->assertCreated();
+
+        $run = PipelineRun::query()->firstOrFail();
+        Queue::fake();
+
+        $this->actingAs($this->user)
+            ->postJson("/api/projects/{$this->project->id}/pipeline-runs/{$run->id}/approve")
+            ->assertOk();
+
+        $developer = PipelineTask::query()
+            ->where('pipeline_run_id', $run->id)
+            ->where('agent_role', AgentRole::Developer)
+            ->firstOrFail();
+
+        $this->assertTrue($developer->included_in_plan);
+        $this->assertSame(PipelineTaskStatus::Pending, $developer->status);
+    }
+
+    public function test_finalize_succeeds_when_remaining_tasks_are_skipped(): void
+    {
+        $run = PipelineRun::query()->create([
+            'project_id' => $this->project->id,
+            'srs_document_id' => $this->document->id,
+            'status' => PipelineRunStatus::Executing,
+            'current_phase' => AgentRole::Developer,
+            'approved_at' => now(),
+            'approved_by_user_id' => $this->user->id,
+        ]);
+
+        PipelineTask::query()->create([
+            'pipeline_run_id' => $run->id,
+            'project_id' => $this->project->id,
+            'sort_order' => 1,
+            'title' => 'Done task',
+            'description' => 'Completed',
+            'agent_role' => AgentRole::Developer,
+            'status' => PipelineTaskStatus::Completed,
+            'included_in_plan' => true,
+        ]);
+
+        PipelineTask::query()->create([
+            'pipeline_run_id' => $run->id,
+            'project_id' => $this->project->id,
+            'sort_order' => 2,
+            'title' => 'Skipped task',
+            'description' => 'Not selected',
+            'agent_role' => AgentRole::Developer,
+            'status' => PipelineTaskStatus::Skipped,
+            'included_in_plan' => false,
+        ]);
+
+        PipelineTask::query()->create([
+            'pipeline_run_id' => $run->id,
+            'project_id' => $this->project->id,
+            'sort_order' => 3,
+            'title' => 'Skipped tester',
+            'description' => 'N/A',
+            'agent_role' => AgentRole::Tester,
+            'status' => PipelineTaskStatus::Skipped,
+            'included_in_plan' => false,
+        ]);
+
+        /** @var PipelineOrchestrator $orchestrator */
+        $orchestrator = app(PipelineOrchestrator::class);
+        $orchestrator->tick($run->id);
+
+        $run->refresh();
+        $this->assertSame(PipelineRunStatus::Completed, $run->status);
+        $this->assertNull($run->error_message);
+    }
+
+    public function test_duplicate_pull_request_links_existing_pr(): void
+    {
+        config(['services.github.default_token' => 'test-token']);
+
+        ProjectRepository::query()->create([
+            'project_id' => $this->project->id,
+            'provider' => 'github',
+            'owner' => 'acme',
+            'repo' => 'app',
+            'default_branch' => 'main',
+        ]);
+
+        $run = PipelineRun::query()->create([
+            'project_id' => $this->project->id,
+            'srs_document_id' => $this->document->id,
+            'status' => PipelineRunStatus::Executing,
+            'current_phase' => AgentRole::Developer,
+            'approved_at' => now(),
+        ]);
+
+        $task = PipelineTask::query()->create([
+            'pipeline_run_id' => $run->id,
+            'project_id' => $this->project->id,
+            'sort_order' => 1,
+            'title' => 'Add note',
+            'description' => 'Create synthesize note',
+            'agent_role' => AgentRole::Developer,
+            'status' => PipelineTaskStatus::Pending,
+            'included_in_plan' => true,
+            'prompt_template' => 'Create synthesize/note.md',
+        ]);
+
+        $this->mock(AiCompletionService::class, function ($mock) {
+            $mock->shouldReceive('complete')->andReturn(json_encode([
+                'files' => [
+                    [
+                        'path' => 'synthesize/note.md',
+                        'action' => 'create',
+                        'content' => "# Note\n\nHello\n",
+                    ],
+                ],
+            ]));
+        });
+
+        Http::fake(function (\Illuminate\Http\Client\Request $request) {
+            $url = $request->url();
+            $method = $request->method();
+
+            if (
+                str_contains($url, '/repos/acme/app')
+                && ! str_contains($url, '/git/')
+                && ! str_contains($url, '/contents/')
+                && ! str_contains($url, '/pulls')
+                && ! str_contains($url, '/compare/')
+                && $method === 'GET'
+            ) {
+                return Http::response([
+                    'name' => 'app',
+                    'default_branch' => 'main',
+                    'permissions' => ['push' => true, 'pull' => true],
+                ]);
+            }
+            if (str_contains($url, '/git/ref/heads/main') && $method === 'GET') {
+                return Http::response(['object' => ['sha' => 'base-commit-sha']]);
+            }
+            if (str_contains($url, '/git/commits/base-commit-sha')) {
+                return Http::response(['tree' => ['sha' => 'tree-sha']]);
+            }
+            if (str_contains($url, '/git/trees/tree-sha')) {
+                return Http::response([
+                    'tree' => [
+                        ['path' => 'README.md', 'type' => 'blob', 'sha' => 'file-sha'],
+                    ],
+                ]);
+            }
+            if (str_contains($url, '/git/refs') && $method === 'POST') {
+                return Http::response(['ref' => 'refs/heads/synthesize/task-x'], 201);
+            }
+            if (str_contains($url, '/contents/') && $method === 'GET') {
+                return Http::response(['message' => 'Not Found'], 404);
+            }
+            if (str_contains($url, '/contents/') && $method === 'PUT') {
+                return Http::response([
+                    'commit' => ['sha' => 'new-commit-sha'],
+                    'content' => ['sha' => 'blob-sha'],
+                ], 201);
+            }
+            if (str_contains($url, '/pulls') && $method === 'POST') {
+                return Http::response([
+                    'message' => 'Validation Failed',
+                    'errors' => [
+                        ['message' => 'A pull request already exists for acme:synthesize/task-019f9dc9.'],
+                    ],
+                ], 422);
+            }
+            if (str_contains($url, '/pulls') && $method === 'GET') {
+                return Http::response([
+                    [
+                        'number' => 19,
+                        'url' => 'https://api.github.com/repos/acme/app/pulls/19',
+                        'html_url' => 'https://github.com/acme/app/pull/19',
+                    ],
+                ]);
+            }
+            if (str_contains($url, '/compare/')) {
+                return Http::response([
+                    'files' => [
+                        ['filename' => 'synthesize/note.md', 'patch' => '+# Note'],
+                    ],
+                ]);
+            }
+
+            return Http::response(['message' => 'unhandled '.$method.' '.$url], 500);
+        });
+
+        /** @var DeveloperAgent $agent */
+        $agent = app(DeveloperAgent::class);
+        $this->assertTrue($agent->executeNext($run->fresh()));
+
+        $task->refresh();
+        $this->assertSame(PipelineTaskStatus::Review, $task->status);
+
+        $change = $task->codeChange;
+        $this->assertNotNull($change);
+        $this->assertSame(19, $change->pr_number);
+        $this->assertSame('https://github.com/acme/app/pull/19', $change->pr_url);
+    }
 }

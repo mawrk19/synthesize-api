@@ -29,6 +29,7 @@ class PipelineTask extends Model
         'description',
         'agent_role',
         'status',
+        'included_in_plan',
         'prompt_template',
         'files_hint',
         'depends_on_task_id',
@@ -43,6 +44,7 @@ class PipelineTask extends Model
         return [
             'agent_role' => AgentRole::class,
             'status' => PipelineTaskStatus::class,
+            'included_in_plan' => 'boolean',
             'files_hint' => 'array',
             'attempts' => 'integer',
         ];

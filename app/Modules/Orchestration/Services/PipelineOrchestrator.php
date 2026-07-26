@@ -126,11 +126,17 @@ class PipelineOrchestrator
         return $this->createApprovalReviewLink($run);
     }
 
-    public function approve(PipelineRun $run, ?int $userId = null, ?string $approverName = null): PipelineRun
-    {
+    public function approve(
+        PipelineRun $run,
+        ?int $userId = null,
+        ?string $approverName = null,
+        ?array $taskIds = null,
+    ): PipelineRun {
         if ($run->status !== PipelineRunStatus::AwaitingApproval) {
             throw new RuntimeException('Pipeline run is not awaiting approval.');
         }
+
+        $this->applyTaskInclusion($run, $taskIds);
 
         $run->update([
             'status' => PipelineRunStatus::Executing,
@@ -153,7 +159,93 @@ class PipelineOrchestrator
 
         RunPipelineJob::dispatch($run->id);
 
-        return $run->fresh();
+        return $run->fresh(['tasks.codeChange', 'tasks.requirement', 'approvedBy']);
+    }
+
+    /**
+     * Include selected developer tasks; skip the rest and their dependent tester/reviewer tasks.
+     *
+     * @param  list<string>|null  $taskIds  Developer task IDs to include. Null = include all.
+     */
+    private function applyTaskInclusion(PipelineRun $run, ?array $taskIds): void
+    {
+        $developerTasks = PipelineTask::query()
+            ->where('pipeline_run_id', $run->id)
+            ->where('agent_role', AgentRole::Developer)
+            ->get();
+
+        if ($developerTasks->isEmpty()) {
+            return;
+        }
+
+        if ($taskIds === null) {
+            PipelineTask::query()
+                ->where('pipeline_run_id', $run->id)
+                ->update(['included_in_plan' => true]);
+
+            return;
+        }
+
+        $taskIds = array_values(array_unique(array_filter($taskIds, fn ($id) => is_string($id) && $id !== '')));
+        $validIds = $developerTasks->pluck('id')->all();
+        $invalid = array_diff($taskIds, $validIds);
+        if ($invalid !== []) {
+            throw new RuntimeException('One or more task_ids are invalid for this pipeline run.');
+        }
+
+        if ($taskIds === []) {
+            throw new RuntimeException('At least one developer task must be approved.');
+        }
+
+        $includeSet = array_flip($taskIds);
+
+        foreach ($developerTasks as $devTask) {
+            $include = isset($includeSet[$devTask->id]);
+            if ($include) {
+                $devTask->update(['included_in_plan' => true]);
+
+                continue;
+            }
+
+            $devTask->update([
+                'included_in_plan' => false,
+                'status' => PipelineTaskStatus::Skipped,
+                'error_message' => 'Skipped at approval — not selected for development.',
+            ]);
+
+            PipelineTask::query()
+                ->where('pipeline_run_id', $run->id)
+                ->where(function ($q) use ($devTask) {
+                    $q->where('parent_task_id', $devTask->id)
+                        ->orWhere('depends_on_task_id', $devTask->id);
+                })
+                ->whereIn('agent_role', [AgentRole::Tester->value, AgentRole::Reviewer->value])
+                ->update([
+                    'included_in_plan' => false,
+                    'status' => PipelineTaskStatus::Skipped,
+                    'error_message' => 'Skipped because parent developer task was not approved.',
+                ]);
+
+            // Reviewer depends on tester — catch any remaining children of skipped tester.
+            $testerIds = PipelineTask::query()
+                ->where('pipeline_run_id', $run->id)
+                ->where('parent_task_id', $devTask->id)
+                ->where('agent_role', AgentRole::Tester)
+                ->pluck('id');
+
+            if ($testerIds->isNotEmpty()) {
+                PipelineTask::query()
+                    ->where('pipeline_run_id', $run->id)
+                    ->whereIn('depends_on_task_id', $testerIds)
+                    ->where('agent_role', AgentRole::Reviewer)
+                    ->where('status', '!=', PipelineTaskStatus::Skipped->value)
+                    ->update([
+                        'included_in_plan' => false,
+                        'status' => PipelineTaskStatus::Skipped,
+                        'error_message' => 'Skipped because parent developer task was not approved.',
+                    ]);
+            }
+        }
     }
 
     public function cancel(PipelineRun $run): PipelineRun
@@ -172,6 +264,7 @@ class PipelineOrchestrator
             ->whereNotIn('status', [
                 PipelineTaskStatus::Completed->value,
                 PipelineTaskStatus::Failed->value,
+                PipelineTaskStatus::Skipped->value,
             ])
             ->update(['status' => PipelineTaskStatus::Blocked]);
 
@@ -256,7 +349,7 @@ class PipelineOrchestrator
         return PipelineRun::query()
             ->where('project_id', $project->id)
             ->where('id', $runId)
-            ->with(['tasks.codeChange', 'tasks.requirement'])
+            ->with(['tasks.codeChange', 'tasks.requirement', 'approvedBy'])
             ->first();
     }
 
@@ -307,10 +400,12 @@ class PipelineOrchestrator
 
         foreach ($pending as $task) {
             $dep = $task->dependsOn;
-            if ($dep && in_array($dep->status, [PipelineTaskStatus::Failed, PipelineTaskStatus::Blocked], true)) {
+            if ($dep && in_array($dep->status, [PipelineTaskStatus::Failed, PipelineTaskStatus::Blocked, PipelineTaskStatus::Skipped], true)) {
                 $task->update([
                     'status' => PipelineTaskStatus::Blocked,
-                    'error_message' => 'Blocked because dependency failed.',
+                    'error_message' => $dep->status === PipelineTaskStatus::Skipped
+                        ? 'Blocked because dependency was skipped.'
+                        : 'Blocked because dependency failed.',
                 ]);
             }
         }

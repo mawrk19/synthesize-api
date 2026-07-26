@@ -30,6 +30,7 @@ class DeveloperAgent
         $task = PipelineTask::query()
             ->where('pipeline_run_id', $run->id)
             ->where('agent_role', AgentRole::Developer)
+            ->where('included_in_plan', true)
             ->where('status', PipelineTaskStatus::Pending)
             ->where(function ($q) {
                 $q->whereNull('depends_on_task_id')

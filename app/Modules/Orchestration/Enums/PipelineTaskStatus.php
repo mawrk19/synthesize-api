@@ -11,11 +11,12 @@ enum PipelineTaskStatus: string
     case Completed = 'completed';
     case Failed = 'failed';
     case Blocked = 'blocked';
+    case Skipped = 'skipped';
 
     public function isTerminal(): bool
     {
         return match ($this) {
-            self::Completed, self::Failed, self::Blocked => true,
+            self::Completed, self::Failed, self::Blocked, self::Skipped => true,
             default => false,
         };
     }

@@ -63,7 +63,7 @@ class PipelineController extends Controller
     public function showRun(string $runId)
     {
         $run = \App\Modules\Orchestration\Models\PipelineRun::query()
-            ->with(['tasks.codeChange', 'tasks.requirement'])
+            ->with(['tasks.codeChange', 'tasks.requirement', 'approvedBy'])
             ->find($runId);
 
         if (! $run) {
@@ -95,12 +95,13 @@ class PipelineController extends Controller
             $run = $this->orchestrator->approve(
                 $run,
                 approverName: $request->input('approver_name'),
+                taskIds: $request->input('task_ids'),
             );
         } catch (RuntimeException $e) {
             abort(422, $e->getMessage());
         }
 
-        return new PipelineRunResource($run->load(['tasks.codeChange', 'tasks.requirement']));
+        return new PipelineRunResource($run->load(['tasks.codeChange', 'tasks.requirement', 'approvedBy']));
     }
 
     #[HeaderParameter('Authorization', 'The authorization token', true)]
