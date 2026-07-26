@@ -77,9 +77,12 @@ class ReviewerAgent
         $system = <<<'PROMPT'
 You are the Reviewer agent for Synthesize. Produce a concise markdown audit report covering:
 1. Requirement coverage
-2. Security / auth risks
-3. Missing tests or edge cases
-4. Overall recommendation (Approve / Request changes)
+2. Coding standards fit (does the diff match existing project conventions: packages, jakarta vs javax, Lombok vs hand-written accessors, naming, layering?)
+3. Security / auth risks
+4. Missing tests or edge cases
+5. Overall recommendation (Approve / Request changes)
+
+Flag generic boilerplate that ignores repo style as "Request changes".
 PROMPT;
 
         $user = "# Requirement\n{$req}\n\n# SRS excerpt\n{$srs}\n\n# Diff\n".mb_substr($diff, 0, 10000);

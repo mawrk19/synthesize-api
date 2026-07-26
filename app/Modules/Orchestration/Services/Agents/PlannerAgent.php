@@ -147,6 +147,8 @@ Respond with ONLY a JSON array (no markdown fences). Each item:
   "files_hint": string[]
 }
 Keep tasks small and implementable. Respect the max task count given by the user.
+files_hint MUST list real relative paths the developer should open first (existing peer Form/DTO/Controller/Service files), not invented folders.
+In prompt_template, tell the developer to match the project's existing coding standards (packages, validation imports, Lombok vs getters, layering).
 PROMPT;
 
         $user = "Max tasks: {$maxTasks}\n\n# SRS\n{$srs}\n\n# Requirements\n{$reqBlock}\n\n# Context\n{$contextExcerpt}";
