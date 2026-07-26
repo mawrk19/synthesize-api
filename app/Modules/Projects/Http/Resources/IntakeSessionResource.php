@@ -20,7 +20,7 @@ class IntakeSessionResource extends JsonResource
             'raw_content' => $this->raw_content,
             'structured_draft' => $this->structured_draft,
             'status' => $this->status->value,
-            'error_message' => $this->error_message,
+            'error_message' => \App\Support\ClientDebug::publicError($this->error_message),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

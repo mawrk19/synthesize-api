@@ -19,7 +19,7 @@ class ContextFileResource extends JsonResource
             'mime_type' => $this->mime_type,
             'status' => $this->status->value,
             'extracted_text' => $this->extracted_text,
-            'error_message' => $this->error_message,
+            'error_message' => \App\Support\ClientDebug::publicError($this->error_message),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

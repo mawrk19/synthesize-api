@@ -19,7 +19,7 @@ class SchemaArtifactResource extends JsonResource
             'ddl_sql' => $this->ddl_sql,
             'openapi_json' => $this->openapi_json,
             'status' => $this->status->value,
-            'error_message' => $this->error_message,
+            'error_message' => \App\Support\ClientDebug::publicError($this->error_message),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

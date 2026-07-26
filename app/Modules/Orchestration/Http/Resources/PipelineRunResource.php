@@ -39,7 +39,7 @@ class PipelineRunResource extends JsonResource
             'approved_by_name' => $approvedByName,
             'approved_task_count' => $this->when($approvedTaskCount !== null, $approvedTaskCount),
             'skipped_task_count' => $this->when($skippedTaskCount !== null, $skippedTaskCount),
-            'error_message' => $this->error_message,
+            'error_message' => \App\Support\ClientDebug::publicError($this->error_message),
             'tasks_count' => $this->when(isset($this->tasks_count), $this->tasks_count),
             'tasks' => PipelineTaskResource::collection($this->whenLoaded('tasks')),
             'created_at' => $this->created_at?->toIso8601String(),

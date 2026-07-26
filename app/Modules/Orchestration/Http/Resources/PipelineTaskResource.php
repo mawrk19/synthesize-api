@@ -25,10 +25,10 @@ class PipelineTaskResource extends JsonResource
             'agent_role' => $this->agent_role?->value,
             'status' => $this->status?->value,
             'included_in_plan' => (bool) ($this->included_in_plan ?? true),
-            'prompt_template' => $this->prompt_template,
+            'prompt_template' => \App\Support\ClientDebug::internal($this->prompt_template),
             'files_hint' => $this->files_hint,
             'attempts' => $this->attempts,
-            'error_message' => $this->error_message,
+            'error_message' => \App\Support\ClientDebug::publicError($this->error_message),
             'audit_report' => $this->audit_report,
             'requirement' => $this->whenLoaded('requirement', fn () => $this->requirement ? [
                 'id' => $this->requirement->id,

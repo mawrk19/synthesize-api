@@ -20,7 +20,7 @@ class DiagramResource extends JsonResource
             'title' => $this->title,
             'mermaid_source' => $this->mermaid_source,
             'status' => $this->status->value,
-            'error_message' => $this->error_message,
+            'error_message' => \App\Support\ClientDebug::publicError($this->error_message),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

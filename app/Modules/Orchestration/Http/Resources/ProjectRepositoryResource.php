@@ -23,7 +23,7 @@ class ProjectRepositoryResource extends JsonResource
             'has_token' => $this->hasToken(),
             'initialization_warning' => $this->when(
                 filled($this->initialization_warning ?? null),
-                (string) $this->initialization_warning,
+                \App\Support\ClientDebug::publicError((string) $this->initialization_warning),
             ),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

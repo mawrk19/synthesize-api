@@ -20,7 +20,7 @@ class SrsDocumentResource extends JsonResource
             'source_filename' => $this->source_filename,
             'status' => $this->status->value,
             'generated_srs' => $this->generated_srs,
-            'error_message' => $this->error_message,
+            'error_message' => \App\Support\ClientDebug::publicError($this->error_message),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
