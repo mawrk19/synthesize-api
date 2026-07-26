@@ -47,7 +47,10 @@ return [
         'api_key' => env('AI_API_KEY'),
         'base_url' => env('AI_BASE_URL', 'https://api.openai.com/v1'),
         'model' => env('AI_MODEL', 'gpt-4o-mini'),
-        'transcription_model' => env('AI_TRANSCRIPTION_MODEL', 'whisper-1'),
+        // Transcription defaults to Groq Whisper (free tier). Override for OpenAI etc.
+        'transcription_api_key' => env('AI_TRANSCRIPTION_API_KEY'),
+        'transcription_base_url' => env('AI_TRANSCRIPTION_BASE_URL'),
+        'transcription_model' => env('AI_TRANSCRIPTION_MODEL'),
     ],
 
 ];

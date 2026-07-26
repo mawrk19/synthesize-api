@@ -43,9 +43,11 @@ services:
       - key: AI_API_KEY
         sync: false
       - key: AI_BASE_URL
-        value: https://api.openai.com/v1
+        value: https://api.groq.com/openai/v1
       - key: AI_MODEL
-        value: gpt-4o-mini
+        value: llama-3.3-70b-versatile
+      - key: AI_TRANSCRIPTION_MODEL
+        value: whisper-large-v3-turbo
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
@@ -135,6 +137,10 @@ services:
           type: web
           name: synthesize-api
           envVarKey: AI_MODEL
+      - fromService:
+          type: web
+          name: synthesize-api
+          envVarKey: AI_TRANSCRIPTION_MODEL
       - fromService:
           type: web
           name: synthesize-api

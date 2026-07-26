@@ -36,10 +36,10 @@ class TranscribeAudioJob implements ShouldQueue
             'error_message' => null,
         ]);
 
-        if (! $ai->isConfigured()) {
+        if (! $ai->isTranscriptionConfigured()) {
             $session->update([
                 'status' => IntakeStatus::Failed,
-                'error_message' => 'AI_API_KEY is required for audio transcription. Paste a transcript instead.',
+                'error_message' => 'AI_API_KEY is required for audio transcription (Groq Whisper). Paste a transcript instead.',
             ]);
 
             return;

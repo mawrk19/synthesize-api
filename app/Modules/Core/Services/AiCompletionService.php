@@ -108,19 +108,22 @@ class AiCompletionService
         return filled(config('services.ai.api_key'));
     }
 
+    public function isTranscriptionConfigured(): bool
+    {
+        return filled($this->transcriptionConfig()['apiKey']);
+    }
+
     /**
      * Transcribe audio via OpenAI-compatible /audio/transcriptions endpoint.
      */
     public function transcribe(string $absolutePath, string $originalFilename): string
     {
-        $apiKey = config('services.ai.api_key');
+        ['baseUrl' => $baseUrl, 'apiKey' => $apiKey, 'model' => $model] = $this->transcriptionConfig();
 
         if (blank($apiKey)) {
             throw new RuntimeException('AI_API_KEY is not configured for transcription.');
         }
 
-        $baseUrl = rtrim((string) config('services.ai.base_url'), '/');
-        $model = (string) config('services.ai.transcription_model', 'whisper-1');
         $started = hrtime(true);
 
         try {
@@ -129,6 +132,8 @@ class AiCompletionService
                 ->attach('file', file_get_contents($absolutePath), $originalFilename)
                 ->post("{$baseUrl}/audio/transcriptions", [
                     'model' => $model,
+                    'response_format' => 'json',
+                    'temperature' => 0,
                 ]);
 
             $latencyMs = (int) ((hrtime(true) - $started) / 1_000_000);
@@ -141,6 +146,7 @@ class AiCompletionService
                     latencyMs: $latencyMs,
                     success: false,
                     errorMessage: 'Transcription request failed: '.$response->body(),
+                    providerBaseUrl: $baseUrl,
                 );
                 throw new RuntimeException('Transcription request failed: '.$response->body());
             }
@@ -155,6 +161,7 @@ class AiCompletionService
                     latencyMs: $latencyMs,
                     success: false,
                     errorMessage: 'Transcription returned empty text.',
+                    providerBaseUrl: $baseUrl,
                 );
                 throw new RuntimeException('Transcription returned empty text.');
             }
@@ -165,6 +172,7 @@ class AiCompletionService
                 response: $response,
                 latencyMs: $latencyMs,
                 success: true,
+                providerBaseUrl: $baseUrl,
             );
 
             return $text;
@@ -179,9 +187,38 @@ class AiCompletionService
                 latencyMs: $latencyMs,
                 success: false,
                 errorMessage: $e->getMessage(),
+                providerBaseUrl: $baseUrl,
             );
             throw $e;
         }
+    }
+
+    /**
+     * @return array{baseUrl: string, apiKey: ?string, model: string}
+     */
+    private function transcriptionConfig(): array
+    {
+        $baseUrl = rtrim((string) (
+            config('services.ai.transcription_base_url')
+            ?: config('services.ai.base_url')
+            ?: 'https://api.groq.com/openai/v1'
+        ), '/');
+
+        $apiKey = config('services.ai.transcription_api_key') ?: config('services.ai.api_key');
+
+        $model = (string) (config('services.ai.transcription_model') ?: '');
+
+        if ($model === '' || ($model === 'whisper-1' && str_contains(strtolower($baseUrl), 'groq.com'))) {
+            $model = str_contains(strtolower($baseUrl), 'groq.com')
+                ? 'whisper-large-v3-turbo'
+                : 'whisper-1';
+        }
+
+        return [
+            'baseUrl' => $baseUrl,
+            'apiKey' => is_string($apiKey) ? $apiKey : null,
+            'model' => $model,
+        ];
     }
 
     private function logUsage(
@@ -191,13 +228,14 @@ class AiCompletionService
         int $latencyMs,
         bool $success,
         ?string $errorMessage = null,
+        ?string $providerBaseUrl = null,
     ): void {
         $json = $response?->json() ?? [];
         $usage = is_array(data_get($json, 'usage')) ? data_get($json, 'usage') : [];
 
         try {
             AiUsageLog::query()->create([
-                'provider' => $this->detectProvider(),
+                'provider' => $this->detectProvider($providerBaseUrl),
                 'operation' => $operation,
                 'model' => data_get($json, 'model') ?: $model,
                 'success' => $success,
@@ -219,9 +257,9 @@ class AiCompletionService
         }
     }
 
-    private function detectProvider(): string
+    private function detectProvider(?string $baseUrl = null): string
     {
-        $baseUrl = strtolower((string) config('services.ai.base_url'));
+        $baseUrl = strtolower($baseUrl ?? (string) config('services.ai.base_url'));
 
         if (str_contains($baseUrl, 'groq.com')) {
             return 'groq';
