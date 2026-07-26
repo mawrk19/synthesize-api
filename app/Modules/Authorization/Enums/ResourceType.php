@@ -36,6 +36,7 @@ enum ResourceType: string
                 PermissionCode::VIEW_PROJECTS,
                 PermissionCode::CREATE_PROJECTS,
                 PermissionCode::MANAGE_PROJECT_CONTEXT,
+                PermissionCode::MANAGE_PROJECT_PIPELINE,
             ],
 
             default => [],

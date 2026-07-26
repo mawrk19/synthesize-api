@@ -54,6 +54,25 @@ class ContextFileService
         return (bool) $file->delete();
     }
 
+    public function reextract(Project $project, string $id): ?ContextFile
+    {
+        $file = $this->findForProject($project, $id);
+
+        if (! $file) {
+            return null;
+        }
+
+        $file->update([
+            'status' => DocumentStatus::Pending,
+            'extracted_text' => null,
+            'error_message' => null,
+        ]);
+
+        ExtractContextTextJob::dispatch($file->id);
+
+        return $file->fresh();
+    }
+
     /** @return list<string> */
     public function extractedBlocksForProject(Project $project, int $maxChars = 12000): array
     {
@@ -68,6 +87,9 @@ class ContextFileService
 
         foreach ($files as $file) {
             $chunk = mb_substr((string) $file->extracted_text, 0, 4000);
+            if ($this->looksUnusableContext($chunk)) {
+                continue;
+            }
             if ($used + mb_strlen($chunk) > $maxChars) {
                 break;
             }
@@ -76,5 +98,27 @@ class ContextFileService
         }
 
         return $blocks;
+    }
+
+    private function looksUnusableContext(string $text): bool
+    {
+        $sample = mb_substr(preg_replace('/\s+/', ' ', $text) ?? $text, 0, 400);
+        if (mb_strlen($sample) < 40) {
+            return false;
+        }
+
+        $tokens = preg_split('/\s+/', $sample) ?: [];
+        if (count($tokens) < 20) {
+            return false;
+        }
+
+        $singleChar = 0;
+        foreach ($tokens as $token) {
+            if (mb_strlen($token) === 1) {
+                $singleChar++;
+            }
+        }
+
+        return ($singleChar / count($tokens)) > 0.55;
     }
 }

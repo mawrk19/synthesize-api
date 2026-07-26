@@ -53,4 +53,14 @@ return [
         'transcription_model' => env('AI_TRANSCRIPTION_MODEL'),
     ],
 
+    'github' => [
+        'default_token' => env('GITHUB_DEFAULT_TOKEN'),
+        'api_base_url' => env('GITHUB_API_BASE_URL', 'https://api.github.com'),
+    ],
+
+    'pipeline' => [
+        'max_tasks_per_run' => (int) env('PIPELINE_MAX_TASKS_PER_RUN', 10),
+        'tick_delay_seconds' => (int) env('PIPELINE_TICK_DELAY_SECONDS', 5),
+    ],
+
 ];

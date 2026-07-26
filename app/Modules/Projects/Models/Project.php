@@ -8,11 +8,14 @@ use App\Modules\Collaboration\Models\ReviewLink;
 use App\Modules\Diagrams\Models\Diagram;
 use App\Modules\Documents\Models\SrsDocument;
 use App\Modules\Iam\Models\UserModel;
+use App\Modules\Orchestration\Models\PipelineRun;
+use App\Modules\Orchestration\Models\ProjectRepository;
 use App\Modules\Projects\Enums\ProjectStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
@@ -91,6 +94,18 @@ class Project extends Model
         return $this->hasMany(ReviewLink::class, 'project_id');
     }
 
+    /** @return HasMany<PipelineRun, $this> */
+    public function pipelineRuns(): HasMany
+    {
+        return $this->hasMany(PipelineRun::class, 'project_id');
+    }
+
+    /** @return HasOne<ProjectRepository, $this> */
+    public function repository(): HasOne
+    {
+        return $this->hasOne(ProjectRepository::class, 'project_id');
+    }
+
     protected static function booted(): void
     {
         static::deleting(function (Project $project): void {
@@ -106,6 +121,7 @@ class Project extends Model
             $project->analysisRuns()->delete();
             $project->schemaArtifacts()->delete();
             $project->reviewLinks()->delete();
+            $project->pipelineRuns()->delete();
         });
     }
 }

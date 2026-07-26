@@ -77,4 +77,22 @@ class ContextFileController extends Controller
 
         return response()->json(null, 204);
     }
+
+    #[HeaderParameter('Authorization', 'The authorization token', true)]
+    public function reextract(string $projectId, string $id)
+    {
+        $project = $this->projectService->findForCurrentUser($projectId);
+
+        if (! $project) {
+            abort(404, 'Project not found');
+        }
+
+        $file = $this->contextFileService->reextract($project, $id);
+
+        if (! $file) {
+            abort(404, 'Context file not found');
+        }
+
+        return new ContextFileResource($file);
+    }
 }

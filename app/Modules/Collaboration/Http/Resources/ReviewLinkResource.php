@@ -15,10 +15,14 @@ class ReviewLinkResource extends JsonResource
         return [
             'id' => $this->id,
             'project_id' => $this->project_id,
+            'pipeline_run_id' => $this->pipeline_run_id,
             'token' => $this->token,
             'url_path' => '/review/'.$this->token,
             'expires_at' => $this->expires_at?->toIso8601String(),
             'allow_comment' => $this->allow_comment,
+            'approval_status' => $this->approval_status?->value ?? 'pending',
+            'approved_at' => $this->approved_at?->toIso8601String(),
+            'approved_by_name' => $this->approved_by_name,
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

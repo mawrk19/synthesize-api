@@ -86,6 +86,8 @@ class SrsDocumentService
             $this->snapshotVersion($document);
         }
 
+        $this->refreshEmbeddedContext($document);
+
         $document->update([
             'status' => DocumentStatus::Pending,
             'generated_srs' => null,
@@ -95,6 +97,66 @@ class SrsDocumentService
         GenerateSrsDocumentJob::dispatch($document->id);
 
         return $document->fresh();
+    }
+
+    /**
+     * Replace the snapshotted "Existing System Context" block with the latest
+     * extracted context-file text, preserving the user's notes / intake body.
+     */
+    public function refreshEmbeddedContext(SrsDocument $document): void
+    {
+        if (! $document->project_id) {
+            return;
+        }
+
+        $project = Project::query()->find($document->project_id);
+        if (! $project) {
+            return;
+        }
+
+        $notes = (string) $document->source_notes;
+        $userSection = $this->extractUserNotesSection($notes);
+        $contextBlocks = $this->contextFileService->extractedBlocksForProject($project);
+
+        if ($contextBlocks === []) {
+            $document->update(['source_notes' => $userSection]);
+
+            return;
+        }
+
+        $heading = str_contains($notes, "## Stakeholder Input\n")
+            ? '## Stakeholder Input'
+            : '## Notes';
+
+        $document->update([
+            'source_notes' => "## Existing System Context\n\n"
+                .implode("\n\n---\n\n", $contextBlocks)
+                ."\n\n{$heading}\n\n"
+                .$userSection,
+        ]);
+    }
+
+    private function extractUserNotesSection(string $notes): string
+    {
+        foreach (['## Notes', '## Stakeholder Input'] as $marker) {
+            $pos = strpos($notes, $marker."\n");
+            if ($pos === false) {
+                $pos = strpos($notes, $marker."\r\n");
+            }
+            if ($pos !== false) {
+                $after = substr($notes, $pos + strlen($marker));
+                $after = ltrim($after, "\r\n");
+
+                return trim($after);
+            }
+        }
+
+        // No structured section — if the whole blob starts with context, drop it.
+        if (str_starts_with(ltrim($notes), '## Existing System Context')) {
+            return '';
+        }
+
+        return trim($notes);
     }
 
     public function updateTitle(string $id, string $title): ?SrsDocument

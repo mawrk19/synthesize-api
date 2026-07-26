@@ -15,6 +15,7 @@ enum PermissionCode: string
     case VIEW_PROJECTS = 'VIEW_PROJECTS';
     case CREATE_PROJECTS = 'CREATE_PROJECTS';
     case MANAGE_PROJECT_CONTEXT = 'MANAGE_PROJECT_CONTEXT';
+    case MANAGE_PROJECT_PIPELINE = 'MANAGE_PROJECT_PIPELINE';
 
     public function getLabel(): string
     {
@@ -27,6 +28,7 @@ enum PermissionCode: string
             self::VIEW_PROJECTS => 'View Projects',
             self::CREATE_PROJECTS => 'Create Projects',
             self::MANAGE_PROJECT_CONTEXT => 'Manage Project Context',
+            self::MANAGE_PROJECT_PIPELINE => 'Manage Project Pipeline',
             default => Str::title(str_replace('_', ' ', $this->name)),
         };
     }
@@ -57,6 +59,7 @@ enum PermissionCode: string
             self::VIEW_PROJECTS => 'Can view Synthesize projects',
             self::CREATE_PROJECTS => 'Can create Synthesize projects',
             self::MANAGE_PROJECT_CONTEXT => 'Can upload context files and manage intake for projects',
+            self::MANAGE_PROJECT_PIPELINE => 'Can start and approve agent pipeline runs for projects',
             default => 'No description available',
         };
     }

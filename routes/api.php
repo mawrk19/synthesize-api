@@ -10,6 +10,7 @@ use App\Modules\Diagrams\Http\Controllers\DiagramController;
 use App\Modules\Documents\Http\Controllers\SrsDocumentController;
 use App\Modules\Iam\Http\Controllers\AuthController;
 use App\Modules\Iam\Http\Controllers\UserController;
+use App\Modules\Orchestration\Http\Controllers\PipelineController;
 use App\Modules\Projects\Http\Controllers\ContextFileController;
 use App\Modules\Projects\Http\Controllers\IntakeSessionController;
 use App\Modules\Projects\Http\Controllers\ProjectController;
@@ -56,6 +57,7 @@ Route::group(['prefix' => '/documents', 'as' => 'documents.', 'middleware' => 'a
     Route::get('/{id}/export/readme', [AnalysisController::class, 'exportReadme'])->name('export.readme');
     Route::get('/{id}/versions', [CollaborationController::class, 'listVersions'])->name('versions');
     Route::post('/{id}/versions/{versionId}/restore', [CollaborationController::class, 'restoreVersion'])->name('versions.restore');
+    Route::post('/{id}/pipeline/start', [PipelineController::class, 'startFromDocument'])->name('pipeline.start');
 });
 
 Route::group(['prefix' => '/projects', 'as' => 'projects.', 'middleware' => 'auth:sanctum'], function () {
@@ -68,6 +70,7 @@ Route::group(['prefix' => '/projects', 'as' => 'projects.', 'middleware' => 'aut
     Route::get('/{projectId}/context-files', [ContextFileController::class, 'index'])->name('context-files.index');
     Route::post('/{projectId}/context-files', [ContextFileController::class, 'store'])->name('context-files.store');
     Route::get('/{projectId}/context-files/{id}', [ContextFileController::class, 'show'])->name('context-files.show');
+    Route::post('/{projectId}/context-files/{id}/reextract', [ContextFileController::class, 'reextract'])->name('context-files.reextract');
     Route::delete('/{projectId}/context-files/{id}', [ContextFileController::class, 'destroy'])->name('context-files.destroy');
 
     Route::get('/{projectId}/intake-sessions', [IntakeSessionController::class, 'index'])->name('intake.index');
@@ -93,10 +96,18 @@ Route::group(['prefix' => '/projects', 'as' => 'projects.', 'middleware' => 'aut
     Route::get('/{projectId}/review-links', [CollaborationController::class, 'listReviewLinks'])->name('review-links.index');
     Route::post('/{projectId}/review-links', [CollaborationController::class, 'storeReviewLink'])->name('review-links.store');
     Route::delete('/{projectId}/review-links/{id}', [CollaborationController::class, 'destroyReviewLink'])->name('review-links.destroy');
+
+    Route::get('/{projectId}/pipeline-runs', [PipelineController::class, 'listRuns'])->name('pipeline-runs.index');
+    Route::post('/{projectId}/pipeline-runs/{runId}/approve', [PipelineController::class, 'approve'])->name('pipeline-runs.approve');
+    Route::post('/{projectId}/pipeline-runs/{runId}/cancel', [PipelineController::class, 'cancel'])->name('pipeline-runs.cancel');
+    Route::get('/{projectId}/repository', [PipelineController::class, 'showRepository'])->name('repository.show');
+    Route::put('/{projectId}/repository', [PipelineController::class, 'upsertRepository'])->name('repository.upsert');
 });
 
 Route::get('/analysis-runs/{runId}', [AnalysisController::class, 'showRun'])->middleware('auth:sanctum');
 Route::get('/schema-artifacts/{schemaId}', [AnalysisController::class, 'showSchema'])->middleware('auth:sanctum');
+Route::get('/pipeline-runs/{runId}', [PipelineController::class, 'showRun'])->middleware('auth:sanctum');
+Route::get('/pipeline-tasks/{taskId}', [PipelineController::class, 'showTask'])->middleware('auth:sanctum');
 
 Route::get('/requirements/{requirementId}/comments', [CollaborationController::class, 'listComments'])->middleware('auth:sanctum');
 Route::post('/requirements/{requirementId}/comments', [CollaborationController::class, 'storeComment'])->middleware('auth:sanctum');
@@ -104,3 +115,4 @@ Route::patch('/comments/{commentId}/resolve', [CollaborationController::class, '
 
 Route::get('/review/{token}', [CollaborationController::class, 'showReview']);
 Route::post('/review/{token}/requirements/{requirementId}/comments', [CollaborationController::class, 'storeGuestComment']);
+Route::post('/review/{token}/approve-pipeline', [CollaborationController::class, 'approvePipeline']);

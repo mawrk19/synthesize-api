@@ -2,6 +2,8 @@
 
 namespace App\Modules\Collaboration\Models;
 
+use App\Modules\Orchestration\Enums\ReviewApprovalStatus;
+use App\Modules\Orchestration\Models\PipelineRun;
 use App\Modules\Projects\Models\Project;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -17,9 +19,13 @@ class ReviewLink extends Model
 
     protected $fillable = [
         'project_id',
+        'pipeline_run_id',
         'token',
         'expires_at',
         'allow_comment',
+        'approval_status',
+        'approved_at',
+        'approved_by_name',
     ];
 
     /** @return array<string, string> */
@@ -28,6 +34,8 @@ class ReviewLink extends Model
         return [
             'expires_at' => 'datetime',
             'allow_comment' => 'boolean',
+            'approval_status' => ReviewApprovalStatus::class,
+            'approved_at' => 'datetime',
         ];
     }
 
@@ -35,6 +43,12 @@ class ReviewLink extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class, 'project_id');
+    }
+
+    /** @return BelongsTo<PipelineRun, $this> */
+    public function pipelineRun(): BelongsTo
+    {
+        return $this->belongsTo(PipelineRun::class, 'pipeline_run_id');
     }
 
     public function isExpired(): bool

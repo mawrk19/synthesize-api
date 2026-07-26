@@ -6,21 +6,32 @@ use App\Modules\Collaboration\Models\Comment;
 use App\Modules\Collaboration\Models\DocumentVersion;
 use App\Modules\Collaboration\Models\ReviewLink;
 use App\Modules\Documents\Models\SrsDocument;
+use App\Modules\Orchestration\Enums\PipelineRunStatus;
+use App\Modules\Orchestration\Enums\ReviewApprovalStatus;
+use App\Modules\Orchestration\Models\PipelineRun;
+use App\Modules\Orchestration\Services\PipelineOrchestrator;
 use App\Modules\Projects\Models\Project;
 use App\Modules\Projects\Models\Requirement;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class CollaborationService
 {
-    public function createReviewLink(Project $project, ?string $expiresAt = null, bool $allowComment = true): ReviewLink
-    {
+    public function createReviewLink(
+        Project $project,
+        ?string $expiresAt = null,
+        bool $allowComment = true,
+        ?string $pipelineRunId = null,
+    ): ReviewLink {
         return ReviewLink::query()->create([
             'project_id' => $project->id,
+            'pipeline_run_id' => $pipelineRunId,
             'token' => Str::random(48),
             'expires_at' => $expiresAt,
             'allow_comment' => $allowComment,
+            'approval_status' => ReviewApprovalStatus::Pending,
         ]);
     }
 
@@ -134,6 +145,32 @@ class CollaborationService
             ->orderBy('code')
             ->get();
 
+        $pipeline = null;
+        if ($link->pipeline_run_id) {
+            $run = PipelineRun::query()
+                ->with(['tasks' => fn ($q) => $q->where('agent_role', 'developer')->orderBy('sort_order')])
+                ->find($link->pipeline_run_id);
+
+            if ($run) {
+                $pipeline = [
+                    'run_id' => $run->id,
+                    'status' => $run->status->value,
+                    'current_phase' => $run->current_phase?->value,
+                    'approval_status' => $link->approval_status?->value ?? ReviewApprovalStatus::Pending->value,
+                    'can_approve' => $run->status === PipelineRunStatus::AwaitingApproval
+                        && ($link->approval_status ?? ReviewApprovalStatus::Pending) === ReviewApprovalStatus::Pending,
+                    'tasks' => $run->tasks->map(fn ($t) => [
+                        'id' => $t->id,
+                        'title' => $t->title,
+                        'description' => $t->description,
+                        'agent_role' => $t->agent_role?->value,
+                        'status' => $t->status?->value,
+                        'sort_order' => $t->sort_order,
+                    ])->values()->all(),
+                ];
+            }
+        }
+
         return [
             'project' => [
                 'id' => $project->id,
@@ -143,6 +180,29 @@ class CollaborationService
             'allow_comment' => $link->allow_comment,
             'documents' => $documents,
             'requirements' => $requirements,
+            'pipeline' => $pipeline,
         ];
+    }
+
+    public function approvePipelineFromReview(string $token, ?string $approverName = null): PipelineRun
+    {
+        $link = $this->findReviewByToken($token);
+        if (! $link || ! $link->pipeline_run_id) {
+            throw new RuntimeException('Review link is not tied to a pipeline run.');
+        }
+
+        $run = PipelineRun::query()->find($link->pipeline_run_id);
+        if (! $run) {
+            throw new RuntimeException('Pipeline run not found.');
+        }
+
+        if ($run->status !== PipelineRunStatus::AwaitingApproval) {
+            throw new RuntimeException('Pipeline run is not awaiting approval.');
+        }
+
+        /** @var PipelineOrchestrator $orchestrator */
+        $orchestrator = app(PipelineOrchestrator::class);
+
+        return $orchestrator->approve($run, null, $approverName ?: 'Stakeholder');
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Modules\Collaboration\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Collaboration\Http\Requests\ApprovePipelineReviewRequest;
 use App\Modules\Collaboration\Http\Requests\StoreCommentRequest;
 use App\Modules\Collaboration\Http\Requests\StoreReviewLinkRequest;
 use App\Modules\Collaboration\Http\Resources\CommentResource;
@@ -188,5 +189,25 @@ class CollaborationController extends Controller
         }
 
         return new SrsDocumentResource($restored);
+    }
+
+    public function approvePipeline(ApprovePipelineReviewRequest $request, string $token)
+    {
+        try {
+            $run = $this->collaborationService->approvePipelineFromReview(
+                token: $token,
+                approverName: $request->input('guest_name') ?? $request->input('approver_name'),
+            );
+        } catch (\RuntimeException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        return response()->json([
+            'data' => [
+                'pipeline_run_id' => $run->id,
+                'status' => $run->status->value,
+                'approved_at' => $run->approved_at?->toIso8601String(),
+            ],
+        ]);
     }
 }
